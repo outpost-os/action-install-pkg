@@ -1,0 +1,48 @@
+name: 'install-package'
+description: 'Install distro package on various GNU/Linux distros'
+inputs:
+  packages:
+    description: 'Comma separated package names, pipe separated fallback(s) for each'
+    type: string
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+
+    - name: 'Get pacapt tool'
+      run: |
+        if [ -e '/usr/bin/curl' -o -e '/bin/curl' ]; then
+          curl -Lo pacapt https://github.com/icy/pacapt/raw/ng/pacapt
+        elif [ -e '/usr/bin/wget' -o -e '/bin/wget' ]; then
+          wget -O pacapt https://github.com/icy/pacapt/raw/ng/pacapt
+        else
+          exit 1
+        fi
+        chmod 750 pacapt
+      shell: bash
+
+    - name: 'Update pkg database'
+      run: |
+        set +e
+        ./pacapt -Sy
+        true
+      shell: bash
+    - name: 'Install package'
+      run: |
+        set +e;
+        set -x
+        IFS=',';
+        read -a pkgs_list <<< "${{ inputs.packages }}";
+        for pkgs in ${pkgs_list[@]};
+        do
+          IFS='|';
+          read -a pkg_possible <<< ${pkgs}
+          for pkg in ${pkg_possible[@]};
+          do
+            ./pacapt --noconfirm -S $pkg;
+            if [ $? -eq 0 ]; then break; fi;
+          done
+        done
+      shell: bash
+
